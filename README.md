@@ -16,3 +16,8 @@ go run build.go --mode="go"
 # For building rust
 go run build.go --mode="rs
 ```
+
+## UP AND RUNNING
+```
+go run server/main.go
+```

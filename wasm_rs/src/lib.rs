@@ -9,5 +9,6 @@ extern {
 
 #[wasm_bindgen(start)]
 pub fn main() {
+    // Called by Javascript
     log("Hello World!!!")
 }

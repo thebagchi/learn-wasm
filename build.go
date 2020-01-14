@@ -71,7 +71,15 @@ func BuildGo() {
 }
 
 func BuildRs() {
-
+	dump, err := exec.Command(
+		"wasm-pack",
+		strings.Fields("build wasm_rs/")...,
+	).CombinedOutput()
+	if nil != err {
+		fmt.Println("Error: ", err)
+		fmt.Println("Log: ", string(dump))
+		return
+	}
 }
 
 func main() {

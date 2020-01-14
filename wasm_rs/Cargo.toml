@@ -5,7 +5,7 @@ authors     = ["sandeep <sandeep.bagchi@gmail.com>"]
 edition     = "2018"
 description = ""
 repository  = ""
-license     = ""
+license     = "../LICENSE"
 
 [dependencies]
 wasm-bindgen = "0.2"

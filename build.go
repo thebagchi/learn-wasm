@@ -68,6 +68,7 @@ func BuildGo() {
 		return
 	}
 	CopyFile(filepath.Join(root, "/misc/wasm/wasm_exec.js"), "www/wasm_exec.js")
+	CopyFile("wasm_go/index.html", "www/index.html")
 }
 
 func BuildRs() {
@@ -80,6 +81,7 @@ func BuildRs() {
 		fmt.Println("Log: ", string(dump))
 		return
 	}
+	CopyFile("wasm_rs/index.html", "www/index.html")
 }
 
 func main() {

@@ -16,5 +16,9 @@ func main() {
 			}
 		}
 	}
+	err := utils.Bind(&utils.Global{}, js.Global())
+	if nil != err {
+		fmt.Println("Error: ", err)
+	}
 	fmt.Println("Hello World")
 }

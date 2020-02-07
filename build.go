@@ -85,7 +85,7 @@ func BuildRs() {
 }
 
 func main() {
-	var mode = flag.String("mode", "go", "oneof go/rs")
+	var mode = flag.String("mode", "go", "one-of go/rs")
 	flag.Parse()
 	if *mode != "go" && *mode != "rs" {
 		fmt.Println("Can only build for rust or golang")

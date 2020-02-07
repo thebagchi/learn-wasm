@@ -74,7 +74,7 @@ func BuildGo() {
 func BuildRs() {
 	dump, err := exec.Command(
 		"wasm-pack",
-		strings.Fields("build wasm_rs/")...,
+		strings.Fields("build wasm_rs/ -t web --no-typescript")...,
 	).CombinedOutput()
 	if nil != err {
 		fmt.Println("Error: ", err)
@@ -82,6 +82,8 @@ func BuildRs() {
 		return
 	}
 	CopyFile("wasm_rs/index.html", "www/index.html")
+	CopyFile("wasm_rs/pkg/wasm_rs.js", "www/wasm_rs.js")
+	CopyFile("wasm_rs/pkg/wasm_rs_bg.wasm", "www/wasm_rs_bg.wasm")
 }
 
 func main() {

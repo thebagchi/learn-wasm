@@ -1,5 +1,4 @@
 use wasm_bindgen::prelude::*;
-use js_sys::match_;
 
 extern crate js_sys;
 
@@ -37,13 +36,13 @@ pub fn main() {
     };
 
     let element = match document.create_element("p") {
-        Some(x) => x,
-        None => {
+        Err(_x) => {
             log("failed creating element `p` inside document");
             return;
         }
+        Ok(x)   => x,
     };
-    val.set_inner_html("Hello from Rust!");
-    body.append_child(&val);
+    element.set_inner_html("Hello from Rust!");
+    body.append_child(&element);
     log("Hello World!!!");
 }

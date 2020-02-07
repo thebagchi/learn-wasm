@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 extern crate js_sys;
+mod router;
 
 #[wasm_bindgen]
 extern {
@@ -10,7 +11,6 @@ extern {
 
 #[wasm_bindgen(start)]
 pub fn main() {
-
     let window = match web_sys::window() {
         Some(x) => x,
         None    => {

@@ -142,6 +142,9 @@ func BindFunction(tag string, fptr reflect.Type, object js.Value, value interfac
 				if kind := returns.Elem().Kind(); kind != reflect.Struct {
 					return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
 				}
+				if !returns.Elem().Implements(reflect.TypeOf((*js.Wrapper)(nil)).Elem()) {
+					return fmt.Errorf("property %s, unsupported kind %s, must implement js.Wrapper", tag, returns.Kind())
+				}
 				function := reflect.FuncOf(parameters, []reflect.Type{returns}, fptr.IsVariadic())
 				reflect.ValueOf(value).Elem().Field(index).Set(
 					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
@@ -216,6 +219,9 @@ func BindFunction(tag string, fptr reflect.Type, object js.Value, value interfac
 		case reflect.Ptr:
 			if kind := returns.Elem().Kind(); kind != reflect.Struct {
 				return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
+			}
+			if !returns.Elem().Implements(reflect.TypeOf((*js.Wrapper)(nil)).Elem()) {
+				return fmt.Errorf("property %s, unsupported kind %s, must implement js.Wrapper", tag, returns.Kind())
 			}
 			function := reflect.FuncOf([]reflect.Type{}, []reflect.Type{returns}, false)
 			reflect.ValueOf(value).Elem().Field(index).Set(

@@ -7,29 +7,40 @@ import (
 	"syscall/js"
 )
 
+// Adapted from https://github.com/nlepage/golang-wasm/
+
 type Global struct {
 	js.Value
-	Window   func() *Window   `wasm:"window"`
-	Document func() *Document `wasm:"document"`
+	Window func() *Window `wasm:"window"`
 }
 
-func (obj *Global) JSValue() js.Value {
+func (obj Global) JSValue() js.Value {
 	return obj.Value
 }
 
 type Window struct {
 	js.Value
+	Document func() *Document `wasm:"document"`
 }
 
-func (obj *Window) JSValue() js.Value {
+func (obj Window) JSValue() js.Value {
 	return obj.Value
 }
 
 type Document struct {
 	js.Value
+	CreateElement func(string) *Element `wasm:"createElement()"`
 }
 
-func (obj *Document) JSValue() js.Value {
+func (obj Document) JSValue() js.Value {
+	return obj.Value
+}
+
+type Element struct {
+	js.Value
+}
+
+func (obj Element) JSValue() js.Value {
 	return obj.Value
 }
 
@@ -57,14 +68,111 @@ func Bind(v interface{}, object js.Value) error {
 	return nil
 }
 
+func input(args []reflect.Value) []interface{} {
+	input := make([]interface{}, 0)
+	for _, v := range args {
+		input = append(input, v.Interface())
+	}
+	return input
+}
+
 func BindFunction(tag string, fptr reflect.Type, object js.Value, value interface{}, index int) error {
 	var (
 		inputs  = fptr.NumIn()
 		outputs = fptr.NumOut()
 	)
 	if tag, truth := IsFunction(tag); truth {
-		// TODO: (Handle Functions)
-		fmt.Println(tag, "is function")
+		if outputs > 1 {
+			return fmt.Errorf("property %s accessed with more than 1 output parameters, expected function with 0/1 outputs", tag)
+		}
+		if outputs == 0 {
+			returns := fptr.Out(0)
+			function := reflect.FuncOf([]reflect.Type{}, []reflect.Type{returns}, false)
+			reflect.ValueOf(value).Elem().Field(index).Set(
+				reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+					object.Call(tag, input(args)...)
+					return []reflect.Value{}
+				}),
+			)
+		}
+		if outputs == 1 {
+			parameters := make([]reflect.Type, 0)
+			for i := 0; i < inputs; i++ {
+				parameters = append(parameters, fptr.In(i))
+			}
+			returns := fptr.Out(0)
+			switch returns.Kind() {
+			case reflect.String:
+				function := reflect.FuncOf(parameters, []reflect.Type{returns}, fptr.IsVariadic())
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						return []reflect.Value{
+							reflect.ValueOf(object.Call(tag, input(args)...).String()),
+						}
+					}),
+				)
+			case reflect.Int:
+				function := reflect.FuncOf(parameters, []reflect.Type{returns}, fptr.IsVariadic())
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						return []reflect.Value{
+							reflect.ValueOf(object.Call(tag, input(args)...).Int()),
+						}
+					}),
+				)
+			case reflect.Float64:
+				function := reflect.FuncOf(parameters, []reflect.Type{returns}, fptr.IsVariadic())
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						return []reflect.Value{
+							reflect.ValueOf(object.Call(tag, input(args)...).Float()),
+						}
+					}),
+				)
+			case reflect.Bool:
+				function := reflect.FuncOf(parameters, []reflect.Type{returns}, fptr.IsVariadic())
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						return []reflect.Value{
+							reflect.ValueOf(object.Call(tag, input(args)...).Bool()),
+						}
+					}),
+				)
+			case reflect.Ptr:
+				if kind := returns.Elem().Kind(); kind != reflect.Struct {
+					return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
+				}
+				function := reflect.FuncOf(parameters, []reflect.Type{returns}, fptr.IsVariadic())
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						v := reflect.New(returns.Elem()).Interface()
+						err := Bind(v, object.Call(tag, input(args)...))
+						if nil == err {
+							return []reflect.Value{reflect.ValueOf(v)}
+						} else {
+							fmt.Println("Error: ", err)
+						}
+						return []reflect.Value{reflect.Zero(returns)}
+					}),
+				)
+			case reflect.Struct:
+				function := reflect.FuncOf(parameters, []reflect.Type{returns}, fptr.IsVariadic())
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						v := reflect.New(returns).Interface()
+						err := Bind(v, object.Call(tag, input(args)...))
+						if nil == err {
+							return []reflect.Value{reflect.ValueOf(v)}
+						} else {
+							fmt.Println("Error: ", err)
+						}
+						return []reflect.Value{reflect.Zero(returns)}
+					}),
+				)
+			default:
+				return fmt.Errorf("function %s, returns unsupported kind %s", tag, returns.Kind())
+			}
+		}
 	}
 	if tag, truth := IsProperty(tag); truth {
 		if inputs > 0 {

@@ -29,18 +29,21 @@ func (obj Window) JSValue() js.Value {
 
 type Document struct {
 	js.Value
-	CreateElement func(string) *Element `wasm:"createElement()"`
+	Body          func() *HtmlElement       `wasm:"body"`
+	CreateElement func(string) *HtmlElement `wasm:"createElement()"`
 }
 
 func (obj Document) JSValue() js.Value {
 	return obj.Value
 }
 
-type Element struct {
+type HtmlElement struct {
 	js.Value
+	SetInnerHtml func(string)       `wasm:"innerHTML"`
+	AppendChild  func(*HtmlElement) `wasm:"appendChild()"`
 }
 
-func (obj Element) JSValue() js.Value {
+func (obj HtmlElement) JSValue() js.Value {
 	return obj.Value
 }
 
@@ -86,8 +89,11 @@ func BindFunction(tag string, fptr reflect.Type, object js.Value, value interfac
 			return fmt.Errorf("property %s accessed with more than 1 output parameters, expected function with 0/1 outputs", tag)
 		}
 		if outputs == 0 {
-			returns := fptr.Out(0)
-			function := reflect.FuncOf([]reflect.Type{}, []reflect.Type{returns}, false)
+			parameters := make([]reflect.Type, 0)
+			for i := 0; i < inputs; i++ {
+				parameters = append(parameters, fptr.In(i))
+			}
+			function := reflect.FuncOf(parameters, []reflect.Type{}, fptr.IsVariadic())
 			reflect.ValueOf(value).Elem().Field(index).Set(
 				reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
 					object.Call(tag, input(args)...)
@@ -178,80 +184,101 @@ func BindFunction(tag string, fptr reflect.Type, object js.Value, value interfac
 		}
 	}
 	if tag, truth := IsProperty(tag); truth {
-		if inputs > 0 {
-			return fmt.Errorf("property %s accessed with input parameters, expected function with 0 inputs", tag)
+		if inputs > 1 {
+			return fmt.Errorf("property %s accessed with more than 1 input parameters, expected function with 0/1 inputs", tag)
 		}
-		if outputs != 1 {
-			return fmt.Errorf("property %s accessed with no output parameters, expected function with 1 outputs", tag)
+		if outputs > 1 {
+			return fmt.Errorf("property %s accessed with no output parameters, expected function with 0/1 outputs", tag)
 		}
-		returns := fptr.Out(0)
-		switch returns.Kind() {
-		case reflect.String:
+		if outputs == 0 {
+			if inputs != 1 {
+				return fmt.Errorf("property %s accessed with zero or more than 1 input parameters, expected function with 1 inputs", tag)
+			}
+			parameters := make([]reflect.Type, 0)
+			for i := 0; i < inputs; i++ {
+				parameters = append(parameters, fptr.In(i))
+			}
+			function := reflect.FuncOf(parameters, []reflect.Type{}, false)
 			reflect.ValueOf(value).Elem().Field(index).Set(
-				reflect.ValueOf(func() string {
-					return object.Get(tag).String()
+				reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+					object.Set(tag, input(args)[0])
+					return []reflect.Value{}
 				}),
 			)
-		case reflect.Bool:
-			reflect.ValueOf(value).Elem().Field(index).Set(
-				reflect.ValueOf(func() bool {
-					return object.Get(tag).Bool()
-				}),
-			)
-		case reflect.Int:
-			reflect.ValueOf(value).Elem().Field(index).Set(
-				reflect.ValueOf(func() int {
-					return object.Get(tag).Int()
-				}),
-			)
-		case reflect.Float64:
-			reflect.ValueOf(value).Elem().Field(index).Set(
-				reflect.ValueOf(func() float64 {
-					return object.Get(tag).Float()
-				}),
-			)
-		case reflect.Map:
-			// TODO: (Handling for Map)
-			return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
-		case reflect.Array:
-			// TODO: (Handling for Array)
-			return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
-		case reflect.Ptr:
-			if kind := returns.Elem().Kind(); kind != reflect.Struct {
+		}
+		if outputs > 0 {
+			if inputs != 0 {
+				return fmt.Errorf("property %s accessed with input parameters, expected function with no inputs", tag)
+			}
+			returns := fptr.Out(0)
+			switch returns.Kind() {
+			case reflect.String:
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.ValueOf(func() string {
+						return object.Get(tag).String()
+					}),
+				)
+			case reflect.Bool:
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.ValueOf(func() bool {
+						return object.Get(tag).Bool()
+					}),
+				)
+			case reflect.Int:
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.ValueOf(func() int {
+						return object.Get(tag).Int()
+					}),
+				)
+			case reflect.Float64:
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.ValueOf(func() float64 {
+						return object.Get(tag).Float()
+					}),
+				)
+			case reflect.Map:
+				// TODO: (Handling for Map)
+				return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
+			case reflect.Array:
+				// TODO: (Handling for Array)
+				return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
+			case reflect.Ptr:
+				if kind := returns.Elem().Kind(); kind != reflect.Struct {
+					return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
+				}
+				if !returns.Elem().Implements(reflect.TypeOf((*js.Wrapper)(nil)).Elem()) {
+					return fmt.Errorf("property %s, unsupported kind %s, must implement js.Wrapper", tag, returns.Kind())
+				}
+				function := reflect.FuncOf([]reflect.Type{}, []reflect.Type{returns}, false)
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						v := reflect.New(returns.Elem()).Interface()
+						err := Bind(v, object.Get(tag))
+						if nil == err {
+							return []reflect.Value{reflect.ValueOf(v)}
+						} else {
+							fmt.Println("Error: ", err)
+						}
+						return []reflect.Value{reflect.Zero(returns)}
+					}),
+				)
+			case reflect.Struct:
+				function := reflect.FuncOf([]reflect.Type{}, []reflect.Type{returns}, false)
+				reflect.ValueOf(value).Elem().Field(index).Set(
+					reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
+						v := reflect.New(returns).Interface()
+						err := Bind(v, object.Get(tag))
+						if nil == err {
+							return []reflect.Value{reflect.ValueOf(v)}
+						} else {
+							fmt.Println("Error: ", err)
+						}
+						return []reflect.Value{reflect.Zero(returns)}
+					}),
+				)
+			default:
 				return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
 			}
-			if !returns.Elem().Implements(reflect.TypeOf((*js.Wrapper)(nil)).Elem()) {
-				return fmt.Errorf("property %s, unsupported kind %s, must implement js.Wrapper", tag, returns.Kind())
-			}
-			function := reflect.FuncOf([]reflect.Type{}, []reflect.Type{returns}, false)
-			reflect.ValueOf(value).Elem().Field(index).Set(
-				reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
-					v := reflect.New(returns.Elem()).Interface()
-					err := Bind(v, object.Get(tag))
-					if nil == err {
-						return []reflect.Value{reflect.ValueOf(v)}
-					} else {
-						fmt.Println("Error: ", err)
-					}
-					return []reflect.Value{reflect.Zero(returns)}
-				}),
-			)
-		case reflect.Struct:
-			function := reflect.FuncOf([]reflect.Type{}, []reflect.Type{returns}, false)
-			reflect.ValueOf(value).Elem().Field(index).Set(
-				reflect.MakeFunc(function, func(args []reflect.Value) []reflect.Value {
-					v := reflect.New(returns).Interface()
-					err := Bind(v, object.Get(tag))
-					if nil == err {
-						return []reflect.Value{reflect.ValueOf(v)}
-					} else {
-						fmt.Println("Error: ", err)
-					}
-					return []reflect.Value{reflect.Zero(returns)}
-				}),
-			)
-		default:
-			return fmt.Errorf("property %s, unsupported kind %s", tag, returns.Kind())
 		}
 	}
 	return nil

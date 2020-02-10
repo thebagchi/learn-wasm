@@ -48,6 +48,14 @@ func main() {
 					keys := utils.Keys(js.Global().Get("document"))
 					fmt.Println("Len: ", len(keys))
 				}
+				body := document.Body()
+				if nil != body {
+					element := document.CreateElement("p")
+					if nil != element {
+						element.SetInnerHtml("Hello from Go!")
+						body.AppendChild(element)
+					}
+				}
 			} else {
 				fmt.Println("Document is nil")
 			}

@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/thebagchi/learn-wasm/wasm_go/utils"
+	"runtime"
 	"syscall/js"
 )
 
 func main() {
+
 	{
 		keys := utils.Keys(js.Global())
 		fmt.Println("Len: ", len(keys))
@@ -24,11 +26,13 @@ func main() {
 	} else {
 		window := global.Window()
 		if nil != window {
+			window.Alert("Hello World")
 			keys := utils.Keys(window.JSValue())
 			fmt.Println("Len: ", len(keys))
 			if len(keys) > 0 {
 				for _, key := range keys {
-					fmt.Println(key)
+					// fmt.Println(key)
+					_ = key
 				}
 			}
 			{
@@ -41,7 +45,8 @@ func main() {
 				fmt.Println("Len: ", len(keys))
 				if len(keys) > 0 {
 					for _, key := range keys {
-						fmt.Println(key)
+						// fmt.Println(key)
+						_ = key
 					}
 				}
 				{
@@ -53,6 +58,7 @@ func main() {
 					element := document.CreateElement("p")
 					if nil != element {
 						element.SetInnerHtml("Hello from Go!")
+						fmt.Println(element.InnerHtml())
 						body.AppendChild(element)
 					}
 				}
@@ -64,4 +70,8 @@ func main() {
 		}
 	}
 	fmt.Println("Hello World")
+	runtime.GC()
+
+	done := make(chan bool, 0)
+	<-done
 }

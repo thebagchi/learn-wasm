@@ -20,7 +20,8 @@ func (obj Global) JSValue() js.Value {
 
 type Window struct {
 	js.Value
-	Document func() *Document `wasm:"document"`
+	Document func() *Document  `wasm:"document"`
+	Alert    func(interface{}) `wasm:"alert()"`
 }
 
 func (obj Window) JSValue() js.Value {
@@ -39,6 +40,7 @@ func (obj Document) JSValue() js.Value {
 
 type HtmlElement struct {
 	js.Value
+	InnerHtml    func() string      `wasm:"innerHTML"`
 	SetInnerHtml func(string)       `wasm:"innerHTML"`
 	AppendChild  func(*HtmlElement) `wasm:"appendChild()"`
 }

@@ -21,10 +21,31 @@ func (obj Global) JSValue() js.Value {
 type Window struct {
 	js.Value
 	Document func() *Document  `wasm:"document"`
+	Location func() *Document  `wasm:"location"`
 	Alert    func(interface{}) `wasm:"alert()"`
 }
 
 func (obj Window) JSValue() js.Value {
+	return obj.Value
+}
+
+type Location struct {
+	js.Value
+	HRef     func() string `wasm:"href"`
+	Origin   func() string `wasm:"origin"`
+	Protocol func() string `wasm:"protocol"`
+	Host     func() string `wasm:"host"`
+	Hostname func() string `wasm:"hostname"`
+	Port     func() string `wasm:"port"`
+	Pathname func() string `wasm:"pathname"`
+	Search   func() string `wasm:"search"`
+	Hash     func() string `wasm:"hash"`
+	Assign   func(string)  `wasm:"assign()"`
+	Replace  func(string)  `wasm:"replace()"`
+	Reload   func(bool)    `wasm:"reload()"`
+}
+
+func (obj Location) JSValue() js.Value {
 	return obj.Value
 }
 
@@ -46,6 +67,17 @@ type HtmlElement struct {
 }
 
 func (obj HtmlElement) JSValue() js.Value {
+	return obj.Value
+}
+
+type HtmlCollection struct {
+	js.Value
+	Length    func() int             `wasm:"length"`
+	Item      func(int) *HtmlElement `wasm:"item"`
+	NamedItem func(int) *HtmlElement `wasm:"namedItem"`
+}
+
+func (obj HtmlCollection) JSValue() js.Value {
 	return obj.Value
 }
 

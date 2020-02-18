@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/thebagchi/learn-wasm/wasm_go/utils"
-	"runtime"
 	"syscall/js"
 )
 
@@ -41,13 +40,16 @@ func main() {
 			}
 			{
 				location := window.Location()
-				keys := utils.Keys(location.JSValue())
-				fmt.Println("Len: ", len(keys))
-				if len(keys) > 0 {
-					for _, key := range keys {
-						fmt.Println(key)
-						_ = key
+				if nil != location {
+					keys := utils.Keys(location.JSValue())
+					fmt.Println("Len: ", len(keys))
+					if len(keys) > 0 {
+						for _, key := range keys {
+							fmt.Println(key)
+							_ = key
+						}
 					}
+					// location.Replace("hello")
 				}
 			}
 			document := window.Document()
@@ -81,8 +83,8 @@ func main() {
 		}
 	}
 	fmt.Println("Hello World")
-	runtime.GC()
 
-	done := make(chan bool, 0)
-	<-done
+	select {
+	// Do Nothing
+	}
 }

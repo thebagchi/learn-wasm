@@ -9,8 +9,25 @@ import (
 
 // Adapted from https://github.com/nlepage/golang-wasm/
 
-type Global struct {
+type JSObject interface {
+	JSValue() js.Value
+	SetValue(js.Value)
+}
+
+type Node struct {
 	js.Value
+}
+
+func (obj Node) JSValue() js.Value {
+	return obj.Value
+}
+
+func (obj *Node) SetValue(value js.Value) {
+	obj.Value = value
+}
+
+type Global struct {
+	Node
 	Window func() *Window `wasm:"window"`
 }
 
@@ -18,10 +35,14 @@ func (obj Global) JSValue() js.Value {
 	return obj.Value
 }
 
+func (obj *Global) SetValue(value js.Value) {
+	obj.Value = value
+}
+
 type Window struct {
-	js.Value
+	Node
 	Document func() *Document  `wasm:"document"`
-	Location func() *Document  `wasm:"location"`
+	Location func() *Location  `wasm:"location"`
 	Alert    func(interface{}) `wasm:"alert()"`
 }
 
@@ -29,8 +50,12 @@ func (obj Window) JSValue() js.Value {
 	return obj.Value
 }
 
+func (obj *Window) SetValue(value js.Value) {
+	obj.Value = value
+}
+
 type Location struct {
-	js.Value
+	Node
 	HRef     func() string `wasm:"href"`
 	Origin   func() string `wasm:"origin"`
 	Protocol func() string `wasm:"protocol"`
@@ -49,8 +74,12 @@ func (obj Location) JSValue() js.Value {
 	return obj.Value
 }
 
+func (obj *Location) SetValue(value js.Value) {
+	obj.Value = value
+}
+
 type Document struct {
-	js.Value
+	Node
 	Body          func() *HtmlElement       `wasm:"body"`
 	CreateElement func(string) *HtmlElement `wasm:"createElement()"`
 }
@@ -59,8 +88,12 @@ func (obj Document) JSValue() js.Value {
 	return obj.Value
 }
 
+func (obj *Document) SetValue(value js.Value) {
+	obj.Value = value
+}
+
 type HtmlElement struct {
-	js.Value
+	Node
 	InnerHtml    func() string      `wasm:"innerHTML"`
 	SetInnerHtml func(string)       `wasm:"innerHTML"`
 	AppendChild  func(*HtmlElement) `wasm:"appendChild()"`
@@ -70,8 +103,12 @@ func (obj HtmlElement) JSValue() js.Value {
 	return obj.Value
 }
 
+func (obj *HtmlElement) SetValue(value js.Value) {
+	obj.Value = value
+}
+
 type HtmlCollection struct {
-	js.Value
+	Node
 	Length    func() int             `wasm:"length"`
 	Item      func(int) *HtmlElement `wasm:"item"`
 	NamedItem func(int) *HtmlElement `wasm:"namedItem"`
@@ -79,6 +116,10 @@ type HtmlCollection struct {
 
 func (obj HtmlCollection) JSValue() js.Value {
 	return obj.Value
+}
+
+func (obj *HtmlCollection) SetValue(value js.Value) {
+	obj.Value = value
 }
 
 func Bind(v interface{}, object js.Value) error {
@@ -318,6 +359,15 @@ func BindFunction(tag string, fptr reflect.Type, object js.Value, value interfac
 	return nil
 }
 
+func MatchInputs(method reflect.Method, inputs []reflect.Type) error {
+	for i, value := range inputs {
+		if method.Type.In(i) != value {
+			return fmt.Errorf("type mismatch, expected %s got %s", method.Type.In(i), value)
+		}
+	}
+	return nil
+}
+
 func BindValue(v interface{}, object js.Value) error {
 	value := reflect.ValueOf(v).Elem()
 	for i, field := range Members(v) {
@@ -325,6 +375,23 @@ func BindValue(v interface{}, object js.Value) error {
 			value := value.Field(i)
 			value.Set(reflect.ValueOf(object))
 			return nil
+		}
+	}
+	for _, method := range Functions(v) {
+		if strings.Compare("SetValue", method.Name) == 0 {
+			if method.Type.NumIn() == 2 && method.Type.NumOut() == 0 {
+				inputs := []reflect.Type{
+					reflect.TypeOf(v),
+					reflect.TypeOf(object),
+				}
+				if err := MatchInputs(method, inputs); nil == err {
+					value := reflect.ValueOf(v).MethodByName(method.Name)
+					value.Call([]reflect.Value{
+						reflect.ValueOf(object),
+					})
+					return nil
+				}
+			}
 		}
 	}
 	return fmt.Errorf("field of type %s not found", reflect.TypeOf(object))
@@ -351,6 +418,18 @@ func Members(v interface{}) []reflect.StructField {
 		fields[i] = elem.Field(i)
 	}
 	return fields
+}
+
+func Functions(v interface{}) []reflect.Method {
+	var (
+		elem    = reflect.ValueOf(v).Type()
+		count   = elem.NumMethod()
+		methods = make([]reflect.Method, 0)
+	)
+	for i := 0; i < count; i++ {
+		methods = append(methods, elem.Method(i))
+	}
+	return methods
 }
 
 func IsProperty(tag string) (string, bool) {

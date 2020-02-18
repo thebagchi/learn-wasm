@@ -377,20 +377,26 @@ func BindValue(v interface{}, object js.Value) error {
 			return nil
 		}
 	}
+	for i, field := range Members(v) {
+		if field.Anonymous {
+			value := value.Field(i).Addr().Interface()
+			if err := BindValue(value, object); nil == err {
+				return nil
+			}
+		}
+	}
 	for _, method := range Functions(v) {
-		if strings.Compare("SetValue", method.Name) == 0 {
-			if method.Type.NumIn() == 2 && method.Type.NumOut() == 0 {
-				inputs := []reflect.Type{
-					reflect.TypeOf(v),
-					reflect.TypeOf(object),
-				}
-				if err := MatchInputs(method, inputs); nil == err {
-					value := reflect.ValueOf(v).MethodByName(method.Name)
-					value.Call([]reflect.Value{
-						reflect.ValueOf(object),
-					})
-					return nil
-				}
+		if method.Type.NumIn() == 2 && method.Type.NumOut() == 0 {
+			inputs := []reflect.Type{
+				reflect.TypeOf(v),
+				reflect.TypeOf(object),
+			}
+			if err := MatchInputs(method, inputs); nil == err {
+				value := reflect.ValueOf(v).MethodByName(method.Name)
+				value.Call([]reflect.Value{
+					reflect.ValueOf(object),
+				})
+				return nil
 			}
 		}
 	}

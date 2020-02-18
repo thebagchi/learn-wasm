@@ -9,21 +9,12 @@ import (
 
 // Adapted from https://github.com/nlepage/golang-wasm/
 
-type JSObject interface {
-	JSValue() js.Value
-	SetValue(js.Value)
-}
-
 type Node struct {
 	js.Value
 }
 
 func (obj Node) JSValue() js.Value {
 	return obj.Value
-}
-
-func (obj *Node) SetValue(value js.Value) {
-	obj.Value = value
 }
 
 type Global struct {
@@ -35,10 +26,6 @@ func (obj Global) JSValue() js.Value {
 	return obj.Value
 }
 
-func (obj *Global) SetValue(value js.Value) {
-	obj.Value = value
-}
-
 type Window struct {
 	Node
 	Document func() *Document  `wasm:"document"`
@@ -48,10 +35,6 @@ type Window struct {
 
 func (obj Window) JSValue() js.Value {
 	return obj.Value
-}
-
-func (obj *Window) SetValue(value js.Value) {
-	obj.Value = value
 }
 
 type Location struct {
@@ -74,10 +57,6 @@ func (obj Location) JSValue() js.Value {
 	return obj.Value
 }
 
-func (obj *Location) SetValue(value js.Value) {
-	obj.Value = value
-}
-
 type Document struct {
 	Node
 	Body          func() *HtmlElement       `wasm:"body"`
@@ -86,10 +65,6 @@ type Document struct {
 
 func (obj Document) JSValue() js.Value {
 	return obj.Value
-}
-
-func (obj *Document) SetValue(value js.Value) {
-	obj.Value = value
 }
 
 type HtmlElement struct {
@@ -103,10 +78,6 @@ func (obj HtmlElement) JSValue() js.Value {
 	return obj.Value
 }
 
-func (obj *HtmlElement) SetValue(value js.Value) {
-	obj.Value = value
-}
-
 type HtmlCollection struct {
 	Node
 	Length    func() int             `wasm:"length"`
@@ -116,10 +87,6 @@ type HtmlCollection struct {
 
 func (obj HtmlCollection) JSValue() js.Value {
 	return obj.Value
-}
-
-func (obj *HtmlCollection) SetValue(value js.Value) {
-	obj.Value = value
 }
 
 func Bind(v interface{}, object js.Value) error {

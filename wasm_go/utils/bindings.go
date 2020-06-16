@@ -128,7 +128,10 @@ func BindFunction(tag string, fptr reflect.Type, object js.Value, value interfac
 	)
 	if tag, truth := IsFunction(tag); truth {
 		if outputs > 1 {
-			return fmt.Errorf("property %s accessed with more than 1 output parameters, expected function with 0/1 outputs", tag)
+			return fmt.Errorf(
+				"property %s accessed with more than 1 output parameters, expected function with 0/1 outputs",
+				tag,
+			)
 		}
 		if outputs == 0 {
 			parameters := make([]reflect.Type, 0)
